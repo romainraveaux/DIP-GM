@@ -1,6 +1,5 @@
 import time
 from pathlib import Path
-from networkx.algorithms.operators import unary
 
 import torch
 
