@@ -9,7 +9,7 @@ from utils.evaluation_metric import matching_accuracy_from_lists, f1_score, get_
 
 from eval import eval_model
 
-from module.model import Net
+from model import Net
 from module.loss_function import HammingLoss
 from utils.config import cfg
 

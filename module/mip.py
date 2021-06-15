@@ -3,7 +3,6 @@ import numpy as np
 from gurobipy import Model
 from gurobipy import GRB
 from gurobipy import quicksum
-from gurobipy import LinExpr
 
 
 def gm_solver(costs, quadratic_costs, edges_src, edges_dst, solver_params):
