@@ -3,19 +3,21 @@
   "DATASET_NAME": "WillowObject",
   "TRAIN": {
     "EPOCH_ITERS": 100,
-    "lr_schedule": "short_halving"
+    "lr_schedule": {
+      "num_epochs": 2,
+      "lr_milestones": [1],
+      "lr_decay": 0.5
+    }
   },
   "EVAL": {
     "SAMPLES": 100
   },
-  "model_dir": "results/pretrain_finetune",
+  "model_dir": "results/nopretrain_finetune",
   "MIP": {
     "lambda_val": 80.0,
     "solver_params": {
       "LogToConsole" : 0,
-      "NumericFocus" : 2,
-      "Presovle" : 2,
-      "LogFile" : "results/nopretrain_finetune/miplog.log"
+      "LogFile": "results/nopretrain_finetune/mip.log"
     }
   }
 }

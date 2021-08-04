@@ -4,7 +4,11 @@
   "save_checkpoint": true,
   "exclude_willow_classes": true,
   "TRAIN": {
-    "lr_schedule": "long_nodrop"
+    "lr_schedule": {
+      "num_epochs": 10,
+      "lr_milestones": [10],
+      "lr_decay": 1.0
+    }
   },
   "EVAL": {
     "SAMPLES": 50

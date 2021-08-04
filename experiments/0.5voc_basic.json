@@ -11,7 +11,8 @@
     "lambda_val": 80.0,
     "solver_params": {
       "LogToConsole" : 0,
-      "LogFile": "results/voc_basic/mip.txt"
+      "LogFile": "results/voc_basic-0.5/mip.txt",
+      "MIPGap": 0.5
     }
   },
   "train_sampling": "intersection",
@@ -20,8 +21,8 @@
   "RANDOM_SEED": 123,
   "warmstart_path": null,
   "TRAIN": {
-    "EPOCH_ITERS": 2000,
-    "LR": 0.0002,
+    "EPOCH_ITERS": 200,
+    "LR": 0.00001,
     "num_graphs_in_matching_instance": 2,
     "lr_schedule": {
       "num_epochs": 10,
@@ -35,5 +36,5 @@
     "reduced_vis": true
   },
   "evaluate_only": false,
-  "model_dir": "results/voc_basic"
+  "model_dir": "results/voc_basic-0.5"
 }
