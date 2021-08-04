@@ -115,8 +115,10 @@ class Net(utils.backbone.VGG16_bn):
         ]
 
         matchings = [
-            gm_solver(unary_costs, quadratic_costs)
-            for gm_solver, unary_costs, quadratic_costs in zip(gm_solvers, unary_costs_list, quadratic_costs_list)
+            # gm_solver(unary_costs, quadratic_costs)
+            # for gm_solver, unary_costs, quadratic_costs in zip(gm_solvers, unary_costs_list, quadratic_costs_list)
+            gm_solver(unary_costs)
+            for gm_solver, unary_costs in zip(gm_solvers, unary_costs_list)
         ]
 
         if visualize_flag:

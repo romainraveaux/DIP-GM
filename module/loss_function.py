@@ -1,17 +1,34 @@
-from os import error
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-
-class HammingLoss(torch.nn.Module):
+class HammingLoss(nn.Module):
     def forward(self, suggested, target):
         errors = suggested * (1.0 - target) + (1.0 - suggested) * target
         return errors.mean(dim=0).sum()
 
+class CrossEntropyLoss(nn.Module):
+    """
+    Cross entropy loss between two permutations.
+    """
+    def __init__(self):
+        super(CrossEntropyLoss, self).__init__()
 
-class EnergyLoss(torch.nn.Module):
-    def forward(self, suggested, target, unary_costs):
-        errors = torch.tensor(0., device=suggested.device)
-        for pred, gt, cost in zip(suggested, target, unary_costs):
-            n_src, n_dst = cost.shape[0], cost.shape[1]
-            errors += torch.sum((gt[:n_src, :n_dst] - pred[:n_src, :n_dst]) * cost) / n_src
-        return errors / target.shape[0]
+    def forward(self, pred_perm, gt_perm, ns_src, ns_dst):
+        batch_num = pred_perm.shape[0]
+
+        pred_perm = pred_perm.to(dtype=torch.float32)
+        gt_perm = gt_perm.to(dtype=torch.float32)
+
+        assert torch.all((pred_perm >= 0) * (pred_perm <= 1))
+        assert torch.all((gt_perm >= 0) * (gt_perm <= 1))
+
+        loss = torch.tensor(0.).to(pred_perm.device)
+        n_sum = torch.zeros_like(loss)
+        for b in range(batch_num):
+            loss += F.binary_cross_entropy(
+                pred_perm[b, :ns_src[b], :ns_dst[b]],
+                gt_perm[b, :ns_src[b], :ns_dst[b]],
+                reduction='sum')
+            n_sum += ns_src[b].to(n_sum.dtype).to(pred_perm.device)
+
+        return loss / n_sum
