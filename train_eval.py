@@ -5,12 +5,11 @@ from pathlib import Path
 
 from data.data_loader_multigraph import GMDataset, get_dataloader
 
-from utils.evaluation_metric import matching_accuracy_from_lists, f1_score, get_pos_neg_from_lists
+from utils.evaluation_metric import matching_accuracy_from_lists, f1_score, get_pos_neg_from_lists, matching_accuracy, get_pos_neg
 
 from eval import eval_model
 
-from module.model import Net
-from module.loss_function import HammingLoss
+from SinkhornModule.gm_solver import hungarian
 from utils.config import cfg
 
 from utils.utils import update_params_from_cmdline
@@ -105,16 +104,29 @@ def train_eval_model(model, criterion, optimizer, dataloader, num_epochs, writer
                 # forward
                 s_pred_list = model(data_list, points_gt_list, graphs_list, n_points_gt_list, perm_mat_list)
 
-                loss = sum([criterion(s_pred, perm_mat) for s_pred, perm_mat in zip(s_pred_list, perm_mat_list)])
-                loss /= len(s_pred_list)
+                if cfg.MODULE == "MIP":
+                    loss = sum([criterion(s_pred, perm_mat) for s_pred, perm_mat in zip(s_pred_list, perm_mat_list)])
+                    loss /= len(s_pred_list)
+                
+                    # backward + optimize
+                    loss.backward()
+                    optimizer.step()
+                    
+                    tp, fp, fn = get_pos_neg_from_lists(s_pred_list, perm_mat_list)
+                    f1 = f1_score(tp, fp, fn)
+                    acc, _, __ = matching_accuracy_from_lists(s_pred_list, perm_mat_list)
+                elif cfg.MODULE == "Sinkhorn":
+                    ns_src, ns_dst = n_points_gt_list[0], n_points_gt_list[1]
+                    loss = criterion(s_pred_list, perm_mat_list[0], ns_src, ns_dst)
+                    
+                    # backward + optimize
+                    loss.backward()
+                    optimizer.step()
 
-                # backward + optimize
-                loss.backward()
-                optimizer.step()
-
-                tp, fp, fn = get_pos_neg_from_lists(s_pred_list, perm_mat_list)
-                f1 = f1_score(tp, fp, fn)
-                acc, _, __ = matching_accuracy_from_lists(s_pred_list, perm_mat_list)
+                    pred_perm = hungarian(s_pred_list.detach(), ns_src, ns_dst)
+                    acc, _, __ = matching_accuracy(pred_perm, perm_mat_list[0])
+                    tp, fp, fn = get_pos_neg(pred_perm, perm_mat_list[0])
+                    f1 = f1_score(tp, fp, fn)
 
                 # statistics
                 bs = perm_mat_list[0].size(0)
@@ -212,10 +224,19 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = Net()
-    model = model.cuda()
+    if cfg.MODULE == "MIP":
+        from module.model import Net
+        from module.loss_function import HammingLoss
+        model = Net()
+        criterion = HammingLoss()
+    elif cfg.MODULE == "Sinkhorn":
+        from SinkhornModule.model import Net
+        from module.loss_function import CrossEntropyLoss
+        model = Net()
+        criterion = CrossEntropyLoss()
 
-    criterion = HammingLoss()
+
+    model = model.cuda()
 
     backbone_params = list(model.node_layers.parameters()) + list(model.edge_layers.parameters())
     backbone_params += list(model.final_layers.parameters())
@@ -231,7 +252,8 @@ if __name__ == "__main__":
 
     if not Path(cfg.model_dir).exists():
         Path(cfg.model_dir).mkdir(parents=True)
-    
+    # cfg.MIP.solver_params.LogFile = cfg.model_dir + '/' + cfg.MIP.solver_params.LogFile
+
     writer = SummaryWriter(str(Path(cfg.model_dir) / ("runs")))
 
     num_epochs = cfg.TRAIN.lr_schedule.num_epochs

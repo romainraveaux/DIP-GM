@@ -5,6 +5,7 @@ import torch
 
 from utils.config import cfg
 from utils.evaluation_metric import matching_accuracy, f1_score, get_pos_neg
+from SinkhornModule.gm_solver import hungarian
 
 
 def eval_model(model, dataloader, eval_epoch=None, verbose=False):
@@ -67,8 +68,13 @@ def eval_model(model, dataloader, eval_epoch=None, verbose=False):
                     visualization_params=visualization_params,
                 )
 
-            _, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_list[0], perm_mat_list[0])
-            _tp, _fp, _fn = get_pos_neg(s_pred_list[0], perm_mat_list[0])
+            if cfg.MODULE == "MIP":
+                _, _acc_match_num, _acc_total_num = matching_accuracy(s_pred_list[0], perm_mat_list[0])
+                _tp, _fp, _fn = get_pos_neg(s_pred_list[0], perm_mat_list[0])
+            elif cfg.MODULE == "Sinkhorn":
+                pred_perm = hungarian(s_pred_list.detach(), n_points_gt[0], n_points_gt[1])
+                _, _acc_match_num, _acc_total_num = matching_accuracy(pred_perm, perm_mat_list[0])
+                _tp, _fp, _fn = get_pos_neg(pred_perm, perm_mat_list[0])
 
             acc_match_num += _acc_match_num
             acc_total_num += _acc_total_num
