@@ -5,57 +5,56 @@ from gurobipy import GRB
 from gurobipy import quicksum
 
 
-# def gm_solver(costs, quadratic_costs, edges_src, edges_dst, solver_params):
-def gm_solver(costs, solver_params):
+def gm_solver(costs, quadratic_costs, edges_src, edges_dst, solver_params):
     V1, V2 = costs.shape[0], costs.shape[1]
-    # E1, E2 = edges_src.shape[0], edges_dst.shape[0]
+    E1, E2 = edges_src.shape[0], edges_dst.shape[0]
 
     coeff_x = dict()
     for i in range(V1):
         for j in range(V2):
             coeff_x[(i,j)] = costs[i][j]
-    # coeff_y = dict()
-    # if E1 != 0 and E2 != 0:
-    #     for i in range(E1):
-    #         for j in range(V2):
-    #             coeff_y[(i,j)] = quadratic_costs[i][j]
+    coeff_y = dict()
+    if E1 != 0 and E2 != 0:
+        for i in range(E1):
+            for j in range(V2):
+                coeff_y[(i,j)] = quadratic_costs[i][j]
 
     model = Model("gm_solver")
     for param, value in solver_params.items():
         model.setParam(param, value)
 
     x = model.addVars(V1, V2, lb=0, ub=1, vtype=GRB.BINARY, name="x")
-    # y = model.addVars(E1, E2, lb=0, ub=1, vtype=GRB.BINARY, name="y")
+    y = model.addVars(E1, E2, lb=0, ub=1, vtype=GRB.BINARY, name="y")
 
-    # obj = x.prod(coeff_x) + y.prod(coeff_y)
+    obj = x.prod(coeff_x) + y.prod(coeff_y)
     obj = x.prod(coeff_x)
     model.setObjective(obj, GRB.MINIMIZE)
 
     x_row_constrs = [model.addConstr(quicksum(x.select(i,'*')) <= 1) for i in range(V1)]
     x_col_constrs = [model.addConstr(quicksum(x.select('*', j)) <= 1) for j in range(V2)]
-    # y_row_constrs = [model.addConstr(quicksum(y.select(ij,'*')) <= 1) for ij in range(E1)]
-    # y_col_constrs = [model.addConstr(quicksum(y.select('*', kl)) <= 1) for kl in range(E2)]
+    y_row_constrs = [model.addConstr(quicksum(y.select(ij,'*')) <= 1) for ij in range(E1)]
+    y_col_constrs = [model.addConstr(quicksum(y.select('*', kl)) <= 1) for kl in range(E2)]
 
-    # beg = 0
-    # for ij in range(E1):
-    #     i = edges_src[ij][0]
-    #     ls = []
-    #     for k in range(V2):
-    #         for kl in range(beg, E2):
-    #             if edges_dst[kl][0] == k:
-    #                 ls.append(y.select(ij, kl)[0])
-    #             else:
-    #                 break;
-    #             beg += 1
-    #         model.addConstr(quicksum(ls) <= x.select(i, k)[0])
+    beg = 0
+    for ij in range(E1):
+        i = edges_src[ij][0]
+        ls = []
+        for k in range(V2):
+            for kl in range(beg, E2):
+                if edges_dst[kl][0] == k:
+                    ls.append(y.select(ij, kl)[0])
+                else:
+                    break;
+                beg += 1
+            model.addConstr(quicksum(ls) <= x.select(i, k)[0])
 
-    # tp_tail_constrs = [
-    #     model.addConstr(
-    #         quicksum([y.select(ij,kl)[0] for kl in range(E2) if edges_dst[kl][1] == l]) <=
-    #         x.select(edges_src[ij][1],l)[0]
-    #         )
-    #     for ij in range(E1) for l in range(V2)
-    # ]
+    tp_tail_constrs = [
+        model.addConstr(
+            quicksum([y.select(ij,kl)[0] for kl in range(E2) if edges_dst[kl][1] == l]) <=
+            x.select(edges_src[ij][1],l)[0]
+            )
+        for ij in range(E1) for l in range(V2)
+    ]
 
 
     model.optimize()
@@ -66,12 +65,11 @@ def gm_solver(costs, solver_params):
     for indx, var in zip(x, x.select()):
         pmat_v[indx] = var.X
     
-    # pmat_e = np.zeros(shape=(E1,E2), dtype=np.long)
-    # for indx, var in zip(y, y.select()):
-    #     pmat_e[indx] = var.X
+    pmat_e = np.zeros(shape=(E1,E2), dtype=np.long)
+    for indx, var in zip(y, y.select()):
+        pmat_e[indx] = var.X
 
-    # return pmat_v, pmat_e
-    return pmat_v
+    return pmat_v, pmat_e
 
 
 class GraphMatchingSolver(torch.autograd.Function):
@@ -80,8 +78,7 @@ class GraphMatchingSolver(torch.autograd.Function):
     [1] 'Vlastelica* M, Paulus* A., Differentiation of Blackbox Combinatorial Solvers, ICLR 2020'
     """
     @staticmethod
-    # def forward(ctx, costs, quadratic_costs, params):
-    def forward(ctx, costs, params):
+    def forward(ctx, costs, quadratic_costs, params):
         """
         Implementation of the forward pass of min-cost matching between two directed graphs
         G_1 = (V_1, E_1), G_2 = (V_2, E_2)
@@ -101,27 +98,24 @@ class GraphMatchingSolver(torch.autograd.Function):
         """
         device = costs.device
 
-        # costs_paid, quadratic_costs_paid = gm_solver(
-        costs_paid = gm_solver(
+        costs_paid, quadratic_costs_paid = gm_solver(
             costs=costs.cpu().detach().numpy(),
-            # quadratic_costs=quadratic_costs.cpu().detach().numpy(),
-            # edges_src=params["edges_left"].cpu().detach().numpy(),
-            # edges_dst=params["edges_right"].cpu().detach().numpy(),
+            quadratic_costs=quadratic_costs.cpu().detach().numpy(),
+            edges_src=params["edges_left"].cpu().detach().numpy(),
+            edges_dst=params["edges_right"].cpu().detach().numpy(),
             solver_params=params["solver_params"]
         )
         costs_paid = torch.from_numpy(costs_paid).to(torch.float32).to(device)
-        # quadratic_costs_paid = torch.from_numpy(quadratic_costs_paid).to(torch.float32).to(device)
+        quadratic_costs_paid = torch.from_numpy(quadratic_costs_paid).to(torch.float32).to(device)
 
         ctx.params = params
-        # ctx.save_for_backward(costs, costs_paid, quadratic_costs, quadratic_costs_paid)
+        ctx.save_for_backward(costs, costs_paid, quadratic_costs, quadratic_costs_paid)
         ctx.save_for_backward(costs, costs_paid)
 
-        # return costs_paid, quadratic_costs_paid
-        return costs_paid
+        return costs_paid, quadratic_costs_paid
 
     @staticmethod
-    # def backward(ctx, grad_costs_paid, grad_quadratic_costs_paid):
-    def backward(ctx, grad_costs_paid):
+    def backward(ctx, grad_costs_paid, grad_quadratic_costs_paid):
         """
         Backward pass computation.
 
@@ -130,34 +124,30 @@ class GraphMatchingSolver(torch.autograd.Function):
         @param grad_quadratic_costs_paid: "dL / d quadratic_costs_paid" torch.Tensor of shape (|E_1|, |E_2|)
         @return: gradient dL / costs, dL / quadratic_costs
         """
-        # costs, costs_paid, quadratic_costs, quadratic_costs_paid = ctx.saved_tensors
-        costs, costs_paid  = ctx.saved_tensors
+        costs, costs_paid, quadratic_costs, quadratic_costs_paid = ctx.saved_tensors
         device = costs.device
         lambda_val = ctx.params["lambda_val"]
         epsilon_val = 1e-8
-        # assert grad_costs_paid.shape == costs.shape and grad_quadratic_costs_paid.shape == quadratic_costs.shape
-        assert grad_costs_paid.shape == costs.shape
+        assert grad_costs_paid.shape == costs.shape and grad_quadratic_costs_paid.shape == quadratic_costs.shape
 
         # x' = x + lambda * grad_x
         costs_prime = costs + lambda_val * grad_costs_paid
-        # quadratic_costs_prime = quadratic_costs + lambda_val * grad_quadratic_costs_paid
+        quadratic_costs_prime = quadratic_costs + lambda_val * grad_quadratic_costs_paid
 
-        # costs_paid_prime, quadratic_costs_paid_prime = gm_solver(
-        costs_paid_prime = gm_solver(
+        costs_paid_prime, quadratic_costs_paid_prime = gm_solver(
             costs=costs_prime.cpu().detach().numpy(),
-            # quadratic_costs=quadratic_costs_prime.cpu().detach().numpy(),
-            # edges_src=ctx.params["edges_left"].cpu().detach().numpy(),
-            # edges_dst=ctx.params["edges_right"].cpu().detach().numpy(),
+            quadratic_costs=quadratic_costs_prime.cpu().detach().numpy(),
+            edges_src=ctx.params["edges_left"].cpu().detach().numpy(),
+            edges_dst=ctx.params["edges_right"].cpu().detach().numpy(),
             solver_params=ctx.params["solver_params"]
         )
         costs_paid_prime = torch.from_numpy(costs_paid_prime).to(torch.float32).to(device)
-        # quadratic_costs_paid_prime = torch.from_numpy(quadratic_costs_paid_prime).to(torch.float32).to(device)
+        quadratic_costs_paid_prime = torch.from_numpy(quadratic_costs_paid_prime).to(torch.float32).to(device)
 
         grad_costs = -(costs_paid - costs_paid_prime) / (lambda_val + epsilon_val)
-        # grad_quadratic_costs = -(quadratic_costs_paid - quadratic_costs_paid_prime) / (lambda_val + epsilon_val)
+        grad_quadratic_costs = -(quadratic_costs_paid - quadratic_costs_paid_prime) / (lambda_val + epsilon_val)
 
-        # return grad_costs, grad_quadratic_costs, None
-        return grad_costs, None
+        return grad_costs, grad_quadratic_costs, None
 
 
 class GraphMatchingModule(torch.nn.Module):
@@ -191,8 +181,7 @@ class GraphMatchingModule(torch.nn.Module):
         self.num_vertices_t_batch = num_vertices_t_batch
         self.params = {"lambda_val": lambda_val, "solver_params": solver_params}
 
-    # def forward(self, costs_batch, quadratic_costs_batch):
-    def forward(self, costs_batch):
+    def forward(self, costs_batch, quadratic_costs_batch):
         """
         Forward pass for a batch of k graph matching instances
         @param costs_batch: torch.Tensor of shape (k, max(num_vertices(G_i)), max(num_vertices(H_i))) with zero padding
@@ -209,24 +198,23 @@ class GraphMatchingModule(torch.nn.Module):
 
         def costs_generator():
             zipped = zip(
-                # self.edges_left_batch,
-                # self.edges_right_batch,
+                self.edges_left_batch,
+                self.edges_right_batch,
                 self.num_vertices_s_batch,
                 self.num_vertices_t_batch,
                 costs_batch,
-                # quadratic_costs_batch,
+                quadratic_costs_batch,
             )
-            # for edges_left, edges_right, num_vertices_s, num_vertices_t, costs, quadratic_costs in zipped:
-            for num_vertices_s, num_vertices_t, costs in zipped:
+            for edges_left, edges_right, num_vertices_s, num_vertices_t, costs, quadratic_costs in zipped:
                 truncated_costs = costs[:num_vertices_s, :num_vertices_t]
-                # assert quadratic_costs.shape[0] == edges_left.shape[1], (quadratic_costs.shape, edges_left.shape)
-                # assert quadratic_costs.shape[1] == edges_right.shape[1], (quadratic_costs.shape, edges_right.shape)
-                # truncated_quadratic_costs = quadratic_costs[: edges_left.shape[-1], : edges_right.shape[-1]]
+                assert quadratic_costs.shape[0] == edges_left.shape[1], (quadratic_costs.shape, edges_left.shape)
+                assert quadratic_costs.shape[1] == edges_right.shape[1], (quadratic_costs.shape, edges_right.shape)
+                truncated_quadratic_costs = quadratic_costs[: edges_left.shape[-1], : edges_right.shape[-1]]
                 leftover_costs = (truncated_costs.abs().sum() - costs.abs().sum()).abs()
                 assert leftover_costs < 1e-5, leftover_costs
-                # leftover_quadratic_costs = (truncated_quadratic_costs.abs().sum() - quadratic_costs.abs().sum()).abs()
-                # assert leftover_quadratic_costs < 1e-5, leftover_quadratic_costs
-                # yield truncated_costs, truncated_quadratic_costs
+                leftover_quadratic_costs = (truncated_quadratic_costs.abs().sum() - quadratic_costs.abs().sum()).abs()
+                assert leftover_quadratic_costs < 1e-5, leftover_quadratic_costs
+                yield truncated_costs, truncated_quadratic_costs
                 yield truncated_costs
 
         batch_size = len(costs_batch)
@@ -236,11 +224,8 @@ class GraphMatchingModule(torch.nn.Module):
 
         for i, (params, costs, num_vertices_s, num_vertices_t) in enumerate(
             zip(params_generator(), costs_generator(), self.num_vertices_s_batch, self.num_vertices_t_batch)
-            # zip(costs_generator(), self.num_vertices_s_batch, self.num_vertices_t_batch)
         ):
-            # costs = self.solver.apply(costs[0], costs[1], params)
-            costs = self.solver.apply(costs, params)
-            result[i, :num_vertices_s, :num_vertices_t] = costs  # Only unary matching returned
-            # result[i, :num_vertices_s, :num_vertices_t] = costs  # Only unary matching returned
+            costs = self.solver.apply(costs[0], costs[1], params)
+            result[i, :num_vertices_s, :num_vertices_t] = costs[0]  # Only unary matching returned
 
         return result

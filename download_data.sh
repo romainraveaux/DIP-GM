@@ -3,7 +3,6 @@
 
 mkdir ./data/downloaded
 mkdir ./data/downloaded/PascalVOC
-mkdir ./data/downloaded/WILLOW
 mkdir ./data/downloaded/SPair-71k
 
 cd ./data/downloaded/PascalVOC
@@ -19,12 +18,6 @@ tar xf VOCtrainval_25-May-2011.tar
 mv TrainVal/VOCdevkit/VOC2011 ./
 rmdir TrainVal/VOCdevkit
 rmdir TrainVal
-echo -e "\e[32m... done\e[0m"
-
-echo -e "\e[1mGetting WILLOW data\e[0m"
-cd ../WILLOW
-wget http://www.di.ens.fr/willow/research/graphlearning/WILLOW-ObjectClass_dataset.zip
-unzip WILLOW-ObjectClass_dataset.zip
 echo -e "\e[32m... done\e[0m"
 
 

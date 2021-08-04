@@ -6,10 +6,8 @@ from module.sconv_archs import SiameseSConvOnNodes, SiameseNodeFeaturesToEdgeFea
 
 from SinkhornModule.gm_solver import *
 
-from utils.config import cfg
 from utils.feature_align import feature_align
 from utils.utils import lexico_iter
-from utils.visualization import easy_visualize
 
 
 def normalize_over_channels(x):

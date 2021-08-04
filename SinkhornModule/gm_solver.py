@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 
+import scipy.optimize as opt
+import numpy as np
+
 class Voting(nn.Module):
     """
     Voting Layer computes a new row-stotatic matrix with softmax. A large number (alpha) is multiplied to the input
@@ -89,9 +92,6 @@ class Sinkhorn(nn.Module):
             s = s[:, :-dummy_shape[1]]
 
         return s
-
-import scipy.optimize as opt
-import numpy as np
 
 
 def hungarian(s: torch.Tensor, n1=None, n2=None):

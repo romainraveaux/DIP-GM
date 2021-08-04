@@ -252,7 +252,6 @@ if __name__ == "__main__":
 
     if not Path(cfg.model_dir).exists():
         Path(cfg.model_dir).mkdir(parents=True)
-    # cfg.MIP.solver_params.LogFile = cfg.model_dir + '/' + cfg.MIP.solver_params.LogFile
 
     writer = SummaryWriter(str(Path(cfg.model_dir) / ("runs")))
 

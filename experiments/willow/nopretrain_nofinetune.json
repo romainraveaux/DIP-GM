@@ -1,8 +1,0 @@
-{
-  "default_json": "experiments/voc_basic.json",
-  "DATASET_NAME": "WillowObject",
-  "evaluate_only": true,
-  "EVAL": {
-    "SAMPLES": 100
-  }
-}
