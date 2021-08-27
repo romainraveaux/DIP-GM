@@ -1,3 +1,4 @@
+# This is just a copy from the original code : https://github.com/C-puqing/DIP-GM
 # Deep graph matching meets mixed-integer linear programming: Relax at your own risk ?
 This repository contains implementation of the paper: [Deep graph matching meets mixed-integer linear programming: Relax at your own risk ?](https://arxiv.org/abs/2108.00394)
 
